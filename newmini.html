@@ -1,0 +1,222 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Restaurant Pro App</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+
+<body class="bg-light">
+
+<div class="container mt-4">
+
+<h2 class="text-center">🍽️ Restaurant Pro App</h2>
+
+<!-- LOGIN / REGISTER -->
+<div id="auth">
+  <h4>Login / Register</h4>
+  <input id="email" class="form-control mb-2" placeholder="Email">
+  <input id="password" type="password" class="form-control mb-2" placeholder="Password">
+  <button class="btn btn-primary" onclick="register()">Register</button>
+  <button class="btn btn-success" onclick="login()">Login</button>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none">
+
+  <button class="btn btn-danger mb-3" onclick="logout()">Logout</button>
+
+  <!-- MENU -->
+  <h4>Menu</h4>
+  <div class="row" id="menu"></div>
+
+  <!-- CART -->
+  <h4>Cart 🛒</h4>
+  <ul id="cartList" class="list-group"></ul>
+  <h5>Total ₹<span id="total">0</span></h5>
+  <button class="btn btn-success" onclick="payNow()">Pay Now</button>
+
+  <hr>
+
+  <!-- ORDER HISTORY -->
+  <h4>📦 Order History</h4>
+  <ul id="orders" class="list-group"></ul>
+
+  <hr>
+
+  <!-- ADMIN -->
+  <h4>🧑‍🍳 Admin Dashboard</h4>
+  <input id="itemName" class="form-control mb-2" placeholder="Item Name">
+  <input id="itemPrice" type="number" class="form-control mb-2" placeholder="Price">
+  <button class="btn btn-primary" onclick="addItem()">Add Item</button>
+
+</div>
+</div>
+
+<script>
+
+/* ---------- AUTH SYSTEM ---------- */
+function register() {
+  let email = emailInput();
+  let password = passInput();
+
+  let users = JSON.parse(localStorage.getItem("users")) || [];
+  users.push({email, password});
+  localStorage.setItem("users", JSON.stringify(users));
+
+  alert("Registered!");
+}
+
+function login() {
+  let email = emailInput();
+  let password = passInput();
+
+  let users = JSON.parse(localStorage.getItem("users")) || [];
+
+  let user = users.find(u => u.email === email && u.password === password);
+
+  if(user){
+    localStorage.setItem("token", "fake-jwt-token");
+    localStorage.setItem("currentUser", email);
+    showApp();
+  } else {
+    alert("Invalid login");
+  }
+}
+
+function logout(){
+  localStorage.removeItem("token");
+  location.reload();
+}
+
+function emailInput(){ return document.getElementById("email").value; }
+function passInput(){ return document.getElementById("password").value; }
+
+function showApp(){
+  document.getElementById("auth").style.display="none";
+  document.getElementById("app").style.display="block";
+  loadMenu();
+  loadCart();
+  loadOrders();
+}
+
+/* ---------- MENU ---------- */
+let menu = JSON.parse(localStorage.getItem("menu")) || [
+  {id:1,name:"Pizza",price:200},
+  {id:2,name:"Burger",price:100}
+];
+
+function loadMenu(){
+  let output="";
+  menu.forEach(item=>{
+    output+=`
+      <div class="col-md-4">
+        <div class="card p-3 mb-2">
+          <h5>${item.name}</h5>
+          <p>₹${item.price}</p>
+          <button class="btn btn-primary" onclick="addToCart(${item.id})">Add</button>
+        </div>
+      </div>`;
+  });
+  document.getElementById("menu").innerHTML=output;
+}
+
+/* ---------- CART ---------- */
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+function addToCart(id){
+  let item = menu.find(m=>m.id===id);
+  cart.push(item);
+  localStorage.setItem("cart", JSON.stringify(cart));
+  loadCart();
+}
+
+function loadCart(){
+  cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+  let list="", total=0;
+
+  cart.forEach((i,index)=>{
+    total+=i.price;
+    list+=`
+      <li class="list-group-item d-flex justify-content-between">
+        ${i.name} - ₹${i.price}
+        <button class="btn btn-sm btn-danger" onclick="removeFromCart(${index})">X</button>
+      </li>`;
+  });
+
+  document.getElementById("cartList").innerHTML=list;
+  document.getElementById("total").innerText=total;
+}
+
+function removeFromCart(index){
+  cart.splice(index,1);
+  localStorage.setItem("cart", JSON.stringify(cart));
+  loadCart();
+}
+
+/* ---------- PAYMENT ---------- */
+function payNow(){
+  if(cart.length===0){
+    alert("Cart empty!");
+    return;
+  }
+
+  alert("💳 Redirecting to Razorpay...");
+  
+  setTimeout(()=>{
+    alert("✅ Payment Successful!");
+    placeOrder();
+  },1500);
+}
+
+/* ---------- ORDER ---------- */
+function placeOrder(){
+  let orders = JSON.parse(localStorage.getItem("orders")) || [];
+  let user = localStorage.getItem("currentUser");
+
+  let total = cart.reduce((sum,i)=>sum+i.price,0);
+
+  orders.push({user,total,date:new Date().toLocaleString()});
+  localStorage.setItem("orders",JSON.stringify(orders));
+
+  cart=[];
+  localStorage.removeItem("cart");
+
+  loadCart();
+  loadOrders();
+}
+
+/* ---------- ORDER HISTORY ---------- */
+function loadOrders(){
+  let orders = JSON.parse(localStorage.getItem("orders")) || [];
+  let user = localStorage.getItem("currentUser");
+
+  let output="";
+  orders.filter(o=>o.user===user).forEach(o=>{
+    output+=`<li class="list-group-item">₹${o.total} - ${o.date}</li>`;
+  });
+
+  document.getElementById("orders").innerHTML=output;
+}
+
+/* ---------- ADMIN ---------- */
+function addItem(){
+  let name=document.getElementById("itemName").value;
+  let price=document.getElementById("itemPrice").value;
+
+  menu.push({id:menu.length+1,name,price:parseInt(price)});
+  localStorage.setItem("menu",JSON.stringify(menu));
+  loadMenu();
+}
+
+/* ---------- AUTO LOGIN ---------- */
+if(localStorage.getItem("token")){
+  showApp();
+}
+
+</script>
+
+</body>
+</html>
+```
